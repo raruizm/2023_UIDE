@@ -1,0 +1,183 @@
+---
+title: "UIDE_MASTER"
+author: "RRM"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(janitor)
+library(sf)
+library(rio)
+library(ggspatial)
+library(leaflet)
+library(leaflet.extras)
+
+# Provincias 
+# https://purl.stanford.edu/vr081mj0189
+# Download data_EPSG_4326.zip
+provincias <- read_sf("DATA/MAPA_PROVINCIAS/ECU_adm1.shp", 
+                      options = "ENCODING=UTF-8")
+
+# CANTONES
+# https://purl.stanford.edu/sr982nm0923
+# Download data_EPSG_4326.zip
+cantones <- read_sf("DATA/MAPA_CANTONES/ECU_adm2.shp", 
+                    options = "ENCODING=UTF-8")
+
+# PARROQUIAS
+# https://purl.stanford.edu/jn651pb1443
+# Download data_EPSG_4326.zip
+parroquias <- read_sf("DATA/MAPA_PARROQUIAS/ECU_adm3.shp", 
+                    options = "ENCODING=UTF-8")
+
+# https://alertasecuador.gob.ec/#p11
+
+```
+
+# R Markdown
+
+```{r}
+ggplot() +
+  geom_polygon(data = spdf_fortified, aes( x = long, y = lat, group = group), fill="#69b3a2", color="white") +
+  theme_void
+
+# osm.types()
+#  [1] "osm"                    "opencycle"              "hotstyle"               "loviniahike"       #  [5] "loviniacycle"           "hikebike"               "hillshade"              "osmgrayscale"      #  [9] "stamenbw"               "stamenwatercolor"       "osmtransport"           "thunderforestlandscape"# [13] "thunderforestoutdoors"  "cartodark"              "cartolight"   
+
+ggplot(provincias) +
+  annotation_map_tile("cartolight") +
+  geom_sf( alpha = 0.8) +
+  annotation_scale() +
+  ggtitle(label = "Mapa Ecuador", subtitle = "Incluye fondo con ggspatial")
+
+```
+
+# OSM DATA
+```{r}
+# libraries we need
+libs <- c("tidyverse", "sf", "giscoR", "httr", "XML", "lwgeom", "stringr")
+library(pacman)
+p_load(libs, character.only = T)
+
+st_layers(dsn = "DATA/ecuador-latest.osm.pbf")
+
+library(osmextract)
+ecuador_points <- oe_read("DATA/ecuador-latest.osm.pbf", layer = "points", skip_vectortranslate = F, quiet = FALSE)
+ecuador_lines <- oe_read("DATA/ecuador-latest.osm.pbf", layer = "lines", skip_vectortranslate = F, quiet = FALSE)
+ecuador_multilinestrings <- oe_read("DATA/ecuador-latest.osm.pbf", layer = "multilinestrings", skip_vectortranslate = F, quiet = FALSE)
+ecuador_multipolygons <- oe_read("DATA/ecuador-latest.osm.pbf", layer = "multipolygons", skip_vectortranslate = F, quiet = FALSE)
+ecuador_other_relations <- oe_read("DATA/ecuador-latest.osm.pbf", layer = "other_relations", skip_vectortranslate = F, quiet = FALSE)
+
+
+
+# https://download.geofabrik.de/south-america/ecuador.html
+
+
+
+
+
+```
+
+
+# Including Plots
+
+```{r}
+leaflet(data = provincias)
+
+leaflet(provincias) %>%
+  addTiles() %>% 
+  addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
+    opacity = 1.0, fillOpacity = 0.5,
+    # fillColor = ~colorQuantile("YlOrRd", ALAND)(ALAND),
+    highlightOptions = highlightOptions(color = "white", weight = 2,
+      bringToFront = TRUE))
+
+names(providers)
+
+# Make the map
+m <- leaflet() %>% 
+  addTiles() %>% 
+  setView( lng = 166.45, lat = -22.25, zoom = 8 )
+m
+```
+
+```{r}
+# https://bookdown.org/nicohahn/making_maps_with_r5/docs/leaflet.html
+basemap <- leaflet() %>%
+  # add different provider tiles
+  addProviderTiles(
+    "OpenStreetMap",
+    # give the layer a name
+    group = "OpenStreetMap"
+  ) %>%
+  addProviderTiles(
+    "Stamen.Toner",
+    group = "Stamen.Toner"
+  ) %>%
+  addProviderTiles(
+    "Stamen.Terrain",
+    group = "Stamen.Terrain"
+  ) %>%
+  addProviderTiles(
+    "Esri.WorldStreetMap",
+    group = "Esri.WorldStreetMap"
+  ) %>%
+  addProviderTiles(
+    "Wikimedia",
+    group = "Wikimedia"
+  ) %>%
+  addProviderTiles(
+    "CartoDB.Positron",
+    group = "CartoDB.Positron"
+  ) %>%
+  addProviderTiles(
+    "Esri.WorldImagery",
+    group = "Esri.WorldImagery"
+  ) %>%
+# add a layers control
+  addLayersControl(
+    baseGroups = c(
+      "OpenStreetMap", "Stamen.Toner",
+      "Stamen.Terrain", "Esri.WorldStreetMap",
+      "Wikimedia", "CartoDB.Positron", "Esri.WorldImagery"
+    ),
+    # position it on the topleft
+    position = "topleft"
+  )
+icon.fa <- makeAwesomeIcon(
+  icon = "flag", markerColor = "red",
+  library = "fa",
+  iconColor = "black"
+)
+
+map_1 <- basemap %>%
+  addAwesomeMarkers(
+    lat = 48.1,
+    lng = 11.5,
+    label = "Starting point",
+    icon = icon.fa
+  )
+
+map_1
+
+drivetime <- ors_isochrones(
+  # set the starting point
+  locations = c(11.5, 48.1),
+  # use a cycling profile
+  profile = "cycling-regular",
+  # 20 minutes drivetime
+  range = 1200,
+  # return a sf object
+  output = "sf",
+  # token
+  api_key = token
+  )
+
+# get the pharmacies within the 20 minutes drivetime
+pharmacies_inter <- st_intersection(drivetime, pharmacies)
+```
+
